@@ -236,6 +236,8 @@ static inline void benchmark(const char* label, TF&& func, Args... args)
 	// std::forward adds 4 ticks in debug mode...
     measure_time(r_best, rdtsc(), func(std::forward<Args>(args) ...));
     measure_time(t_best, get_nsecs(), func(std::forward<Args>(args) ...));
+    //measure_time(r_best, rdtsc(), func(args...));
+    //measure_time(t_best, get_nsecs(), func(args...));
 	/**
 	    t_total_delta provided to show what goes into measuring time at start / function / time at end, and even then we are still off by 100ns
 	    Formula is: (((total - (cost*loops))/loops))/2 - 100ns
