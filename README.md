@@ -1,0 +1,3 @@
+Collection of header files that provide functions, and other utilities that are used throughout other projects...
+
+For benchmarking: Check http://www.open-std.org/jtc1/sc22/wg21/docs/TR18015.pdf
