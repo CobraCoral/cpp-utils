@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <type_traits> // std::enable_if
 
+// TODO add string versioning and other stuff to compiled binary (e.g. getinfo)
 namespace {
     const char rcsid_template_utils_h[] = "$Id: template_utils.h 426 2011-06-08 21:27:14Z a803980 $";
 }
@@ -10,6 +12,7 @@ namespace {
 // type forwaring 
 template <typename T> T& ref_type_forwarding(T);
 
+//{{{ Min/Max
 namespace extrema {
     // helper templates
     template<typename T>
@@ -24,9 +27,39 @@ namespace extrema {
         return a < b ? a : b;
     }
 } // extrema
+//}}}
 
-// base 2 logarithmic
+//{{{ power
+namespace power {
+    // NOTE: if you want this to resolve in compile time, you need to:
+    // constexpr uint64_t value = base2log::value(128);
+    template <typename T>
+    constexpr uint64_t value(T num, uint32_t pow)
+    {
+        if (num < 0) return value(-num, pow);
+        if (pow == 0) return 1;
+        if (pow == 1) return num;
+        return num * value(num, pow-1);
+    }
+}
+//}}}
+
+//{{{ base 2 logarithmic
 namespace base2log {
+    // NOTE: if you want this to resolve in compile time, you need to:
+    // constexpr uint64_t value = base2log::value(128);
+    constexpr uint64_t value(uint64_t i)
+    {
+        if (i <= 1) return 0;
+        uint64_t ret_val = 0;
+        while (i>1)
+        {
+            ret_val += 1;
+            i /= 2;
+        }
+        return ret_val;
+    }
+
     template<uint64_t VAL>
     struct input
     {
@@ -45,8 +78,9 @@ namespace base2log {
         static constexpr uint64_t value = 0;
     };
 }
+//}}}
 
-// Counts how many bits are set in a number.
+//{{{ BitSet Counting - Counts how many bits are set in a number.
 //
 // This is also known as hamming weight, population count, popcount,
 // sideways sum, or bit summation.
@@ -106,9 +140,9 @@ namespace count_bits {
         static constexpr uint64_t value = 0;
     };
 }
+//}}}
 
-
-// system native type
+//{{{ system native type
 namespace system_native_type
 {
     template <size_t PointerSize> struct unsigned_system_native_type;
@@ -147,6 +181,7 @@ namespace system_native_type
         typedef typename signed_system_native_type<sizeof(std::intptr_t)>::type type;
     };
 }
+//}}}
 
 // validates if a structure is size aligned
 template <typename T, std::size_t N>
@@ -155,13 +190,29 @@ struct is_structure_size_aligned
     enum { VALUE = (sizeof(T) == (sizeof(T)/N)*N) ? true : false };
 };
 
+//{{{ Array tools
 // Size of Array
 template <typename T, std::size_t N>
-std::size_t size_of_array(const T (&array)[N])
+constexpr std::size_t array_size(const T (&)[N])
 {
     return N;
 }
 
+template <typename T>
+struct not_an_array
+{
+    static constexpr bool error = false;
+};
+
+template <typename T>
+constexpr std::size_t array_size(T)
+{ // we could just =delete this (see https://foonathan.net/2015/11/overload-resolution-2/), but this is better
+    static_assert(not_an_array<T>::error, "array-to-pointer decay has occured, cannot give you the size");
+    return 0; // to silence warnings
+}
+//}}}
+
+//{{{ RAII-Guard-Pthread Lock
 /*
 #include <pthread.h>
 // pthread lock guard - RAII
@@ -186,3 +237,41 @@ struct pthread_lock_guard
     Mutex & mutex_;
 };
 */
+//}}}
+
+//{{{ For SFINAE magic : see https://foonathan.net/2015/11/overload-resolution-4/
+template <typename...>
+struct voider
+{
+	using type = void;
+};
+
+/**
+    Example:
+    template <typename Cont, typename Key>
+    auto erase(Cont &c, const Key &value) -> void_t<decltype(c.erase(value))>
+*/
+template <typename ... Ts>
+using void_t = typename voider<Ts...>::type;
+// NOTE / TODO -> on c++17, we have std::void_t! use that instead!
+//}}}
+
+//{{{ Better static_assert messages, from: https://stackoverflow.com/questions/13837668/display-integer-at-compile-time-in-static-assert/45127063
+template<uint64_t N>
+struct TriggerOverflowWarning
+{
+    static constexpr uint64_t value() { return N + 256; }
+};
+
+template <uint64_t N, uint64_t M, typename Enable = void>
+struct CheckEqualityWithWarning
+{
+    static constexpr bool value = true;
+};
+
+template <uint64_t N, uint64_t M>
+struct CheckEqualityWithWarning<N, M, typename std::enable_if<N != M>::type>
+{
+    static constexpr bool value = (TriggerOverflowWarning<N>::value() == TriggerOverflowWarning<M>::value());
+};
+//}}}

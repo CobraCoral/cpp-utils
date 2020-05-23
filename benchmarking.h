@@ -54,7 +54,7 @@ constexpr uint64_t ITERATIONS{1000000ULL};
 // ticks are set either by loop or signal initialization above
 static inline double get_nanos_from_ticks(uint64_t ticks)
 {
-    return ticks/g_ticks_per_nanosec[0];
+    return ticks/g_ticks_per_nanosec[CalibrationType::SIGNAL];
 }
 
 // keeps track of how many ticks rdtsc takes (for 2 calls, start and end)
@@ -94,11 +94,11 @@ static inline uint64_t rdtsc()
       }
 
 static inline struct timespec
-TimeSpecDiff(struct timespec *ts1, struct timespec *ts2)
+TimeSpecDiff(struct timespec *ts_end, struct timespec *ts_start)
 {
     struct timespec ts;
-    ts.tv_sec = ts1->tv_sec - ts2->tv_sec;
-    ts.tv_nsec = ts1->tv_nsec - ts2->tv_nsec;
+    ts.tv_sec = ts_end->tv_sec - ts_start->tv_sec;
+    ts.tv_nsec = ts_end->tv_nsec - ts_start->tv_nsec;
     if (ts.tv_nsec < 0) {
       --ts.tv_sec;
       ts.tv_nsec += NSEC_PER_SEC;
